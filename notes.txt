@@ -1,0 +1,101 @@
+sudo apt update -y; sudo apt upgrade -y
+sudo apt install libgpiod-dev libyaml-cpp-dev libbluetooth-dev openssl libssl-dev libulfius-dev liborcania-dev avahi-daemon -y
+wget https://github.com/meshtastic/firmware/releases/download/v2.5.14.f2ee0df/meshtasticd_2.5.14.f2ee0df_arm64.deb
+sudo apt install ./meshtasticd_2.5.14.f2ee0df_arm64.deb
+
+sudo raspi-config nonint set_config_var dtparam=spi on /boot/firmware/config.txt
+sudo raspi-config nonint set_config_var dtparam=i2c_arm on /boot/firmware/config.txt
+sudo raspi-config nonint do_serial_hw 0
+sudo raspi-config nonint do_serial_cons 1
+
+sudo sed -i -e '/^\s*#\?\s*dtoverlay\s*=\s*vc4-kms-v3d/! s/^\s*#\?\s*(dtoverlay|dtparam\s*=\s*uart0)\s*=.*/dtoverlay=spi0-0cs/' /boot/firmware/config.txt
+if ! sudo grep -q '^\s*dtoverlay=spi0-0cs' /boot/firmware/config.txt; then
+    sudo sed -i '/^\s*dtparam=spi=on/a dtoverlay=spi0-0cs' /boot/firmware/config.txt
+fi
+
+--add at end of boot/firmware/config.txt
+
+
+[all]
+enable_uart=1
+
+
+--reboot
+
+nanders@no-common-sense:~ $ dmesg | grep tty
+[    0.000000] Kernel command line: coherent_pool=1M 8250.nr_uarts=1 snd_bcm2835.enable_headphones=0 snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_hdmi=0  smsc95xx.macaddr=B8:27:EB:33:75:60 vc_mem.mem_base=0x1ec00000 vc_mem.mem_size=0x20000000  console=ttyS0,115200 console=tty1 root=PARTUUID=314b7659-02 rootfstype=ext4 fsck.repair=yes rootwait quiet splash plymouth.ignore-serial-consoles cfg80211.ieee80211_regdom=US
+[    0.000399] printk: console [tty1] enabled
+[    2.803810] 3f201000.serial: ttyAMA1 at MMIO 0x3f201000 (irq = 99, base_baud = 0) is a PL011 rev2
+[    2.804195] serial serial0: tty port ttyAMA1 registered
+[    2.807200] printk: console [ttyS0] disabled
+[    2.807856] 3f215040.serial: ttyS0 at MMIO 0x3f215040 (irq = 71, base_baud = 50000000) is a 16550
+[    2.807928] printk: console [ttyS0] enabled
+[    6.872327] systemd[1]: Created slice system-getty.slice - Slice /system/getty.
+[    6.876474] systemd[1]: Created slice system-serial\x2dgetty.slice - Slice /system/serial-getty.
+[    6.881885] systemd[1]: Expecting device dev-ttyS0.device - /dev/ttyS0...
+
+
+/etc/meshtasticd/config.yaml
+
+# Per https://meshtastic.org/docs/hardware/devices/linux-native-hardware/#meshtasticd-configuration
+Lora:
+  Module: sx1262 # Waveshare SX126X XXXM
+  DIO2_AS_RF_SWITCH: true
+  CS: 21
+  IRQ: 16
+  Busy: 20
+  Reset: 18
+
+Webserver:
+  Port: 443 # Port for Webserver & Webservices
+  RootPath: /usr/share/doc/meshtasticd/web # Root Dir of WebServer
+
+----
+
+sudo systemctl enable meshtasticd
+
+sudo systemctl status meshtasticd
+
+----
+had to gunzip the web interface statuc files
+
+   39  cd /usr/share/doc/meshtasticd/web
+   41  cd static/
+   43  cd js/
+   57  sudo gunzip *.gz
+   45  cd ..
+   47  cd css/
+   57  sudo gunzip *.gz
+
+   53  cd ..
+   54  ls -la
+   55  cd js/
+   56  ls -la
+   57  sudo gunzip *.gz
+   58  cd async/
+   59  ls -la
+   60  sudo gunzip *.gz
+   61  ls -la
+
+-----------------
+
+-- helpful debug commands
+journalctl -u meshtasticd -f
+
+
+------------------
+
+git clone https://github.com/meshtastic/python.git
+
+python3 -m venv /home/nanders/python-venv
+cd python
+/home/nanders/python-venv/bin/pip install .
+
+vi ~/.bashrc
+alias meshtastic='/home/nanders/python-venv/bin/python3 /home/nanders/python/meshtastic/__main__.py'
+. ~/.bashrc
+meshtastic
+
+
+
+
